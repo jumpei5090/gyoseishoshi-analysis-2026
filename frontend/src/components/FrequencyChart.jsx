@@ -58,7 +58,7 @@ export default function FrequencyChart({ data, keyword }) {
                         display: true,
                         position: 'top',
                         labels: {
-                            color: '#8b949e',
+                            color: '#ffffff', // Pure white for maximum visibility
                             font: { family: 'Noto Sans JP', size: 12 },
                             usePointStyle: true,
                             padding: 20,
@@ -67,7 +67,7 @@ export default function FrequencyChart({ data, keyword }) {
                     tooltip: {
                         backgroundColor: '#1c2128',
                         titleColor: '#e6edf3',
-                        bodyColor: '#8b949e',
+                        bodyColor: '#ffffff',
                         borderColor: '#30363d',
                         borderWidth: 1,
                         cornerRadius: 8,
@@ -82,13 +82,13 @@ export default function FrequencyChart({ data, keyword }) {
                 scales: {
                     x: {
                         grid: { color: 'rgba(48, 54, 61, 0.5)', drawBorder: false },
-                        ticks: { color: '#8b949e', font: { family: 'Noto Sans JP', size: 12 } },
+                        ticks: { color: '#ffffff', font: { family: 'Noto Sans JP', size: 12 } },
                     },
                     y: {
                         beginAtZero: true,
                         grid: { color: 'rgba(48, 54, 61, 0.5)', drawBorder: false },
                         ticks: {
-                            color: '#8b949e',
+                            color: '#ffffff',
                             font: { family: 'Noto Sans JP', size: 12 },
                             stepSize: 1,
                             callback: (v) => Number.isInteger(v) ? v : '',

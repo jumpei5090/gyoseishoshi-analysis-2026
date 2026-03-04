@@ -71,9 +71,16 @@ export default function Dashboard({ searchResult, loading }) {
                 {matched_topics.length > 0 && (
                     <div className="matched-topics">
                         {matched_topics.map((t, i) => (
-                            <span key={i} className="topic-tag">
-                                {t.subject_name && `${t.subject_name} › `}{t.law_name && t.law_name !== t.name ? `${t.law_name} › ` : ''}{t.name}
-                            </span>
+                            <div key={i} className="topic-tag-group">
+                                <span className="topic-tag">
+                                    {t.subject_name && `${t.subject_name} › `}{t.law_name && t.law_name !== t.name ? `${t.law_name} › ` : ''}{t.name}
+                                </span>
+                                {t.prediction && (
+                                    <span className={`prediction-tag ${t.prediction.score >= 80 ? 'high' : t.prediction.score >= 60 ? 'mid' : 'low'}`} title={`2026年 予測ランク: ${t.prediction.rank}位`}>
+                                        2026重要度: {t.prediction.score}%
+                                    </span>
+                                )}
+                            </div>
                         ))}
                     </div>
                 )}

@@ -25,6 +25,6 @@ def init_db():
     """Create all tables."""
     os.makedirs(os.path.join(BASE_DIR, "data"), exist_ok=True)
     from models import (  # noqa: F401
-        Subject, Law, Topic, Question, Choice, QuestionTopic, KeywordMapping
+        Subject, Law, Topic, Question, Choice, QuestionTopic, KeywordMapping, UserAnswer
     )
     Base.metadata.create_all(bind=engine)

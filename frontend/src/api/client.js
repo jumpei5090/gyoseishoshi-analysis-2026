@@ -66,7 +66,7 @@ export async function getLawPredictions() {
     return res.json();
 }
 
-export async function getTopicBreakdown(minYear = 2015, maxYear = 2024) {
+export async function getTopicBreakdown(minYear = 2015, maxYear = 2025) {
     const params = new URLSearchParams({ min_year: minYear, max_year: maxYear });
     const res = await fetch(`${API_BASE}/analysis/topic-breakdown?${params}`);
     if (!res.ok) throw new Error('トピック別データの取得に失敗しました');
@@ -76,5 +76,46 @@ export async function getTopicBreakdown(minYear = 2015, maxYear = 2024) {
 export async function getSingleQuestion(year, questionNumber) {
     const res = await fetch(`${API_BASE}/analysis/question/${year}/${questionNumber}`);
     if (!res.ok) throw new Error('問題データの取得に失敗しました');
+    return res.json();
+}
+
+export async function getQuestionsByTopic(topicId, minYear = 2015, maxYear = 2025) {
+    const params = new URLSearchParams({ topic_id: topicId, min_year: minYear, max_year: maxYear });
+    const res = await fetch(`${API_BASE}/analysis/questions-by-topic?${params}`);
+    if (!res.ok) throw new Error('問題データの取得に失敗しました');
+    return res.json();
+}
+
+// === Answer History ===
+
+export async function saveAnswer(nickname, questionId, isCorrect, mode = 'practice') {
+    const params = new URLSearchParams({
+        nickname,
+        question_id: questionId,
+        is_correct: isCorrect,
+        mode,
+    });
+    const res = await fetch(`${API_BASE}/answers?${params}`, { method: 'POST' });
+    if (!res.ok) throw new Error('回答の保存に失敗しました');
+    return res.json();
+}
+
+export async function getHistory(nickname) {
+    if (!nickname) return [];
+    const res = await fetch(`${API_BASE}/answers/${encodeURIComponent(nickname)}/history`);
+    if (!res.ok) return [];
+    const list = await res.json();
+    // Convert to map: question_id → { is_correct, answered_at, mode }
+    const map = {};
+    for (const item of list) {
+        map[item.question_id] = item;
+    }
+    return map;
+}
+
+export async function getAnalysis(nickname) {
+    if (!nickname) return null;
+    const res = await fetch(`${API_BASE}/answers/${encodeURIComponent(nickname)}/analysis`);
+    if (!res.ok) throw new Error('分析データの取得に失敗しました');
     return res.json();
 }

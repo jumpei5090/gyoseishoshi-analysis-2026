@@ -11,6 +11,7 @@ backend/.Python
 backend/env/
 backend/venv/
 backend/.venv/
+backend/.env
 backend/*.db
 backend/*.sqlite3
 

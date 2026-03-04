@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 from database import get_db
 from models import Topic, Law, Subject, Question, QuestionTopic
-from services.analyzer import get_yearly_frequency, get_subject_breakdown, get_heatmap_data, search_topics
+from services.analyzer import get_yearly_frequency, get_subject_breakdown, get_heatmap_data, search_topics, get_topic_ids_by_keyword
 from services.predictor import generate_predictions, generate_subject_predictions
 
 router = APIRouter(prefix="/api/analysis", tags=["analysis"])
@@ -13,60 +13,65 @@ router = APIRouter(prefix="/api/analysis", tags=["analysis"])
 @router.get("/search")
 def search(keyword: str = Query(..., min_length=1), db: Session = Depends(get_db)):
     """Search for subjects, laws, and topics matching a keyword."""
-    return search_topics(db, keyword)
+    results = search_topics(db, keyword)
+    
+    # Add prediction scores if they exist (calculated once per request)
+    predictions = generate_predictions(db)
+    pred_map = {p["topic_id"]: p for p in predictions}
+    
+    for item in results:
+        if item["type"] == "topic":
+            p = pred_map.get(item["id"])
+            if p:
+                item["prediction"] = {
+                    "score": p["scores"]["composite"],
+                    "rank": p["rank"]
+                }
+    return results
 
 
 @router.get("/frequency")
 def frequency(
     keyword: str = Query(..., min_length=1),
     min_year: int = Query(2015),
-    max_year: int = Query(2024),
+    max_year: int = Query(2025),
     db: Session = Depends(get_db),
 ):
     """Get yearly frequency for a keyword (searches across topics, laws, subjects)."""
-    # Find matching topic IDs
-    topic_ids = set()
+    # Use the unified topic identification logic
+    topic_weights = get_topic_ids_by_keyword(db, keyword)
+    topic_ids = list(topic_weights.keys())
+    
+    # Format matched items for the frontend
     matched_items = []
-
-    # Match topics
-    topics = db.query(Topic).filter(Topic.name.contains(keyword)).all()
-    for t in topics:
-        topic_ids.add(t.id)
+    # Sort byproduct by weight to show the most relevant topics in the "matched" list
+    sorted_tids = sorted(topic_weights.items(), key=lambda x: x[1], reverse=True)[:10]
+    
+    # Get predictions to add scores
+    predictions = generate_predictions(db)
+    pred_map = {p["topic_id"]: p for p in predictions}
+    
+    for tid, weight in sorted_tids:
+        t = db.query(Topic).get(tid)
         law = db.query(Law).get(t.law_id)
         subject = db.query(Subject).get(law.subject_id) if law else None
+        
+        pred_data = None
+        p = pred_map.get(tid)
+        if p:
+            pred_data = {
+                "score": p["scores"]["composite"],
+                "rank": p["rank"]
+            }
+
         matched_items.append({
             "id": t.id, "name": t.name,
             "law_name": law.name if law else "",
             "subject_name": subject.name if subject else "",
+            "prediction": pred_data
         })
 
-    # Match laws -> all their topics
-    laws = db.query(Law).filter(Law.name.contains(keyword)).all()
-    for l in laws:
-        law_topics = db.query(Topic).filter(Topic.law_id == l.id).all()
-        for t in law_topics:
-            topic_ids.add(t.id)
-        subject = db.query(Subject).get(l.subject_id)
-        matched_items.append({
-            "id": l.id, "name": l.name,
-            "law_name": l.name,
-            "subject_name": subject.name if subject else "",
-        })
-
-    # Match subjects -> all their topics
-    subjects = db.query(Subject).filter(Subject.name.contains(keyword)).all()
-    for s in subjects:
-        s_laws = db.query(Law).filter(Law.subject_id == s.id).all()
-        for l in s_laws:
-            law_topics = db.query(Topic).filter(Topic.law_id == l.id).all()
-            for t in law_topics:
-                topic_ids.add(t.id)
-        matched_items.append({
-            "id": s.id, "name": s.name,
-            "law_name": "", "subject_name": s.name,
-        })
-
-    yearly = get_yearly_frequency(db, list(topic_ids), min_year, max_year)
+    yearly = get_yearly_frequency(db, topic_ids, min_year, max_year)
     total = sum(y["count"] for y in yearly)
 
     return {
@@ -87,7 +92,7 @@ def subject_breakdown(year: int = Query(None), db: Session = Depends(get_db)):
 def heatmap(
     subject_id: int = Query(None),
     min_year: int = Query(2015),
-    max_year: int = Query(2024),
+    max_year: int = Query(2025),
     db: Session = Depends(get_db),
 ):
     """Get topic × year heatmap data."""
@@ -126,6 +131,11 @@ def get_taxonomy(db: Session = Depends(get_db)):
     """Get full taxonomy tree: subjects → laws → topics."""
     subjects = db.query(Subject).order_by(Subject.display_order).all()
     result = []
+    
+    # Get predictions once
+    predictions = generate_predictions(db)
+    pred_map = {p["topic_id"]: p for p in predictions}
+
     for s in subjects:
         laws_data = []
         s_laws = db.query(Law).filter(Law.subject_id == s.id).all()
@@ -135,7 +145,16 @@ def get_taxonomy(db: Session = Depends(get_db)):
                 "id": l.id,
                 "name": l.name,
                 "short_name": l.short_name,
-                "topics": [{"id": t.id, "name": t.name} for t in l_topics],
+                "topics": [
+                    {
+                        "id": t.id, 
+                        "name": t.name,
+                        "prediction": {
+                            "score": pred_map[t.id]["scores"]["composite"],
+                            "rank": pred_map[t.id]["rank"]
+                        } if t.id in pred_map else None
+                    } for t in l_topics
+                ],
             })
         result.append({
             "id": s.id,
@@ -152,26 +171,10 @@ def get_questions(
     db: Session = Depends(get_db),
 ):
     """Get individual questions matching a keyword for a specific year."""
-    # Find matching topic IDs (same logic as frequency)
-    topic_ids = set()
-
-    topics = db.query(Topic).filter(Topic.name.contains(keyword)).all()
-    for t in topics:
-        topic_ids.add(t.id)
-
-    laws = db.query(Law).filter(Law.name.contains(keyword)).all()
-    for l in laws:
-        law_topics = db.query(Topic).filter(Topic.law_id == l.id).all()
-        for t in law_topics:
-            topic_ids.add(t.id)
-
-    subjects = db.query(Subject).filter(Subject.name.contains(keyword)).all()
-    for s in subjects:
-        s_laws = db.query(Law).filter(Law.subject_id == s.id).all()
-        for l in s_laws:
-            law_topics = db.query(Topic).filter(Topic.law_id == l.id).all()
-            for t in law_topics:
-                topic_ids.add(t.id)
+    # Find matching topic IDs (using unified logic)
+    from services.analyzer import get_topic_ids_by_keyword
+    topic_weights = get_topic_ids_by_keyword(db, keyword)
+    topic_ids = list(topic_weights.keys())
 
     if not topic_ids:
         return []
@@ -232,7 +235,76 @@ def get_questions(
     return result
 
 
+@router.get("/questions-by-topic")
+def get_questions_by_topic(
+    topic_id: int = Query(...),
+    min_year: int = Query(2015),
+    max_year: int = Query(2025),
+    db: Session = Depends(get_db),
+):
+    """Get all questions for a specific topic across a year range."""
+    from models import Choice
+    from sqlalchemy import distinct
+
+    question_ids = (
+        db.query(distinct(QuestionTopic.question_id))
+        .filter(QuestionTopic.topic_id == topic_id)
+        .subquery()
+    )
+
+    questions = (
+        db.query(Question)
+        .filter(
+            Question.id.in_(question_ids),
+            Question.year >= min_year,
+            Question.year <= max_year,
+        )
+        .order_by(Question.year, Question.question_number)
+        .all()
+    )
+
+    result = []
+    for q in questions:
+        subject = db.query(Subject).get(q.subject_id)
+        law = db.query(Law).get(q.law_id) if q.law_id else None
+        q_topics = (
+            db.query(Topic)
+            .join(QuestionTopic)
+            .filter(QuestionTopic.question_id == q.id)
+            .all()
+        )
+        q_choices = (
+            db.query(Choice)
+            .filter_by(question_id=q.id)
+            .order_by(Choice.choice_number)
+            .all()
+        )
+        result.append({
+            "id": q.id,
+            "year": q.year,
+            "question_number": q.question_number,
+            "subject_name": subject.name if subject else "",
+            "law_name": law.name if law else "",
+            "format": q.question_format or "",
+            "question_text": q.question_text or "",
+            "correct_answer": q.correct_answer or "",
+            "explanation": q.explanation or "",
+            "choices": [
+                {
+                    "choice_number": c.choice_number,
+                    "content": c.content or "",
+                    "is_correct": c.is_correct,
+                }
+                for c in q_choices
+            ],
+            "topics": [t.name for t in q_topics],
+        })
+
+    return result
+
+
 @router.get("/question/{year}/{question_number}")
+
 def get_single_question(year: int, question_number: int, db: Session = Depends(get_db)):
     """Get a single question by year and question number."""
     from models import Choice
@@ -286,7 +358,7 @@ def get_single_question(year: int, question_number: int, db: Session = Depends(g
 @router.get("/topic-breakdown")
 def topic_breakdown(
     min_year: int = Query(2015),
-    max_year: int = Query(2024),
+    max_year: int = Query(2025),
     db: Session = Depends(get_db),
 ):
     """
@@ -297,6 +369,10 @@ def topic_breakdown(
 
     subjects = db.query(Subject).order_by(Subject.display_order).all()
     result = []
+
+    # Get predictions once
+    predictions = generate_predictions(db)
+    pred_map = {p["topic_id"]: p for p in predictions}
 
     for s in subjects:
         # Get all topics under this subject
@@ -339,21 +415,33 @@ def topic_breakdown(
                     ],
                 })
 
-            if total > 0:
-                # Find which law this topic belongs to
                 law = db.query(Law).get(t.law_id)
+                
+                # Get prediction for this topic
+                p = pred_map.get(t.id) if 'pred_map' in locals() else None
+
                 topics_data.append({
                     "topic_id": t.id,
                     "topic_name": t.name,
                     "law_name": law.name if law else "",
                     "total": total,
                     "yearly": yearly,
+                    "prediction": {
+                        "score": p["scores"]["composite"],
+                        "rank": p["rank"]
+                    } if p else None
                 })
 
         # Sort by total descending
         topics_data.sort(key=lambda x: x["total"], reverse=True)
 
-        subject_total = sum(td["total"] for td in topics_data)
+        # Calculate accurate subject_total (unique questions)
+        subject_total = (
+            db.query(func.count(distinct(Question.id)))
+            .filter(Question.subject_id == s.id)
+            .filter(Question.year >= min_year, Question.year <= max_year)
+            .scalar() or 0
+        )
         result.append({
             "subject_id": s.id,
             "subject_name": s.name,
@@ -365,9 +453,23 @@ def topic_breakdown(
 
 
 @router.get("/predictions/topics")
-def get_topic_predictions(db: Session = Depends(get_db)):
-    """Get 2026 exam topic-level predictions ranked by composite score."""
-    return generate_predictions(db)
+def get_topic_predictions(
+    min_data_years: int = 1,
+    db: Session = Depends(get_db)
+):
+    """Get 2026 exam topic-level predictions ranked by composite score.
+    
+    min_data_years: Minimum number of years with actual question data (default=1).
+    Set to 0 to include ghost topics with no historical data.
+    """
+    predictions = generate_predictions(db)
+    # Filter out topics that have insufficient data (unless caller asks for all)
+    if min_data_years > 0:
+        predictions = [p for p in predictions if p["scores"].get("data_years", 0) >= min_data_years]
+    # Re-rank after filtering
+    for i, p in enumerate(predictions):
+        p["rank"] = i + 1
+    return predictions
 
 
 @router.get("/predictions/laws")

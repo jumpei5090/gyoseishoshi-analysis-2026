@@ -13,7 +13,7 @@ const SUBJECT_COLORS = {
     '一般知識': '#f778ba',
 }
 
-const YEARS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+const YEARS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
 
 /* ─── Subject Trend Chart (Bar + Line) ─── */
 function SubjectTrendChart({ subject }) {
@@ -435,6 +435,7 @@ export default function TopicBreakdownTable({ data }) {
                                                 <th key={y} className="th-year">{String(y).slice(2)}</th>
                                             ))}
                                             <th className="th-total">計</th>
+                                            <th className="th-prediction">2026予測</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -464,10 +465,29 @@ export default function TopicBreakdownTable({ data }) {
                                                             </td>
                                                         ))}
                                                         <td className="td-total">{topic.total}</td>
+                                                        <td className="td-prediction">
+                                                            {topic.prediction ? (
+                                                                <div className="pred-score-container" title={`2026予測ランク: ${topic.prediction.rank}位`}>
+                                                                    <div className="pred-score-text" style={{
+                                                                        color: topic.prediction.score >= 80 ? '#f59e0b' : topic.prediction.score >= 60 ? '#10b981' : '#8b949e',
+                                                                        fontWeight: 'bold',
+                                                                        fontSize: '0.8rem'
+                                                                    }}>
+                                                                        {topic.prediction.score}%
+                                                                    </div>
+                                                                    <div className="pred-score-bar-bg">
+                                                                        <div
+                                                                            className={`pred-score-bar-fill ${topic.prediction.score >= 80 ? 'high' : topic.prediction.score >= 60 ? 'mid' : 'low'}`}
+                                                                            style={{ width: `${topic.prediction.score}%` }}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            ) : '−'}
+                                                        </td>
                                                     </tr>
                                                     {isTopicExpanded && (
                                                         <tr key={`${topicKey}-detail`} className="topic-detail-row">
-                                                            <td colSpan={YEARS.length + 2}>
+                                                            <td colSpan={YEARS.length + 3}>
                                                                 <div className="topic-year-details">
                                                                     {/* Sub-theme Trend Chart */}
                                                                     <TopicTrendChart topic={topic} color={color} />

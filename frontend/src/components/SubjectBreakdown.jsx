@@ -42,7 +42,7 @@ export default function SubjectBreakdown({ data }) {
                     legend: {
                         position: 'right',
                         labels: {
-                            color: '#8b949e',
+                            color: '#ffffff', // Pure white for maximum visibility
                             font: { family: 'Noto Sans JP', size: 12 },
                             usePointStyle: true,
                             padding: 16,

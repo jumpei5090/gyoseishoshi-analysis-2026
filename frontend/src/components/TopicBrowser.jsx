@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getTaxonomy, searchFrequency } from '../api/client'
 
-export default function TopicBrowser({ onSearch, onLoadingChange }) {
+export default function TopicBrowser({ onSearch, onLoadingChange, onNavigateToTopic }) {
     const [taxonomy, setTaxonomy] = useState([])
     const [activeSubject, setActiveSubject] = useState(null)
     const [activeLaw, setActiveLaw] = useState(null)
@@ -89,13 +89,28 @@ export default function TopicBrowser({ onSearch, onLoadingChange }) {
                                 {activeLaw === law.id && (
                                     <div className="topic-chips">
                                         {law.topics.map(topic => (
-                                            <button
-                                                key={topic.id}
-                                                className="topic-chip"
-                                                onClick={() => handleTopicClick(topic.name)}
-                                            >
-                                                {topic.name}
-                                            </button>
+                                            <div key={topic.id} className="topic-chip-group">
+                                                <span
+                                                    className="topic-chip"
+                                                    onClick={() => handleTopicClick(topic.name)}
+                                                    title={`出題傾向グラフで分析${topic.prediction ? ` (2026重要度: ${topic.prediction.score}%)` : ''}`}>
+                                                    {topic.name}
+                                                    {topic.prediction && (
+                                                        <span className={`topic-pred-mini ${topic.prediction.score >= 80 ? 'high' : topic.prediction.score >= 60 ? 'mid' : 'low'}`}>
+                                                            {topic.prediction.score}%
+                                                        </span>
+                                                    )}
+                                                </span>
+                                                {onNavigateToTopic && (
+                                                    <button
+                                                        className="topic-chip-goto"
+                                                        onClick={() => onNavigateToTopic(topic.id)}
+                                                        title="過去問ブラウザで開く"
+                                                    >
+                                                        📚
+                                                    </button>
+                                                )}
+                                            </div>
                                         ))}
                                     </div>
                                 )}

@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from database import init_db
-from routers import analysis, export
+from routers import analysis, export, answers
 
 app = FastAPI(
     title="行政書士過去問分析ツール",
@@ -41,3 +41,4 @@ def health_check():
 # Register routers
 app.include_router(analysis.router)
 app.include_router(export.router)
+app.include_router(answers.router)

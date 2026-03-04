@@ -1,6 +1,6 @@
 """SQLAlchemy ORM models for the exam analysis database."""
 
-from sqlalchemy import Column, Integer, Text, Float, Boolean, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, Text, Float, Boolean, ForeignKey, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -102,3 +102,21 @@ class KeywordMapping(Base):
     weight = Column(Float, default=1.0)
 
     topic = relationship("Topic", back_populates="keyword_mappings")
+
+
+class UserAnswer(Base):
+    """ユーザーの回答履歴 (User Answer History)"""
+    __tablename__ = "user_answers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    nickname = Column(Text, nullable=False, index=True)
+    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
+    is_correct = Column(Boolean, nullable=False)
+    answered_at = Column(Text, nullable=False)  # ISO8601 string
+    mode = Column(Text, nullable=True)           # 'practice' | 'mock'
+
+    question = relationship("Question")
+
+    __table_args__ = (
+        Index("ix_user_answers_nickname_question", "nickname", "question_id"),
+    )

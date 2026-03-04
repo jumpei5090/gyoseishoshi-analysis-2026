@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { searchFrequency, searchSuggestions } from '../api/client'
 
-export default function SearchBar({ onSearch, onLoadingChange }) {
+export default function SearchBar({ onSearch, onLoadingChange, onNavigateToTopic }) {
     const [query, setQuery] = useState('')
     const [suggestions, setSuggestions] = useState([])
     const [showSuggestions, setShowSuggestions] = useState(false)
@@ -54,8 +54,14 @@ export default function SearchBar({ onSearch, onLoadingChange }) {
     }
 
     const handleSuggestionClick = (item) => {
-        setQuery(item.name)
-        doSearch(item.name)
+        setShowSuggestions(false)
+        // If it's a topic AND we have the navigate function, jump directly to QuestionBrowser
+        if (item.type === 'topic' && onNavigateToTopic) {
+            onNavigateToTopic(item.id)
+        } else {
+            setQuery(item.name)
+            doSearch(item.name)
+        }
     }
 
     const badgeClass = (type) => {
@@ -91,6 +97,9 @@ export default function SearchBar({ onSearch, onLoadingChange }) {
                             <span className={badgeClass(item.type)}>{badgeLabel(item.type)}</span>
                             <span className="suggestion-name">{item.name}</span>
                             {item.parent_name && <span className="suggestion-parent">{item.parent_name}</span>}
+                            {item.type === 'topic' && onNavigateToTopic && (
+                                <span className="suggestion-goto">📚 過去問で開く</span>
+                            )}
                         </div>
                     ))}
                 </div>
