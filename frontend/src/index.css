@@ -799,6 +799,169 @@ body {
   }
 }
 
+/* === Print Styles === */
+@media print {
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+    line-height: 1.5;
+  }
+
+  .header,
+  .page-nav,
+  .browser-layout,
+  .topic-progress-bar,
+  .year-summary,
+  .mode-select-area,
+  .browser-question-preview,
+  .browser-placeholder,
+  .browser-loading,
+  .browser-empty {
+    display: none !important;
+  }
+
+  .printable-sheet {
+    display: block !important;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  .print-header {
+    border-bottom: 2px solid #000;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+  }
+
+  .print-header h1 {
+    font-size: 18pt;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #000 !important;
+    background: none !important;
+    -webkit-text-fill-color: initial !important;
+  }
+
+  .print-metadata {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10pt;
+    color: #444;
+  }
+
+  .print-question-card {
+    page-break-inside: avoid;
+    margin-bottom: 20px;
+    border-bottom: 1px dotted #ccc;
+    padding-bottom: 15px;
+  }
+
+  .print-q-header {
+    font-weight: bold;
+    margin-bottom: 8px;
+    display: flex;
+    gap: 10px;
+  }
+
+  .print-q-num {
+    background: #eee;
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: #000;
+  }
+
+  .print-q-text {
+    margin-bottom: 10px;
+    white-space: pre-wrap;
+    text-align: justify;
+  }
+
+  .print-choices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    /* Two columns to save space */
+    gap: 5px 20px;
+    margin-left: 15px;
+  }
+
+  .print-choice-item {
+    font-size: 10pt;
+  }
+
+  .print-kijutsu-box {
+    margin: 10px 0;
+  }
+
+  .print-kijutsu-grid {
+    display: grid;
+    grid-template-columns: repeat(20, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    border: 1px solid #000;
+    width: 100%;
+    max-width: 500px;
+  }
+
+  .print-grid-cell {
+    width: 25px;
+    height: 25px;
+    border: 0.5px solid #000;
+  }
+
+  .print-kijutsu-hint {
+    font-size: 9pt;
+    color: #666;
+    margin-top: 5px;
+  }
+
+  .page-break {
+    page-break-before: always;
+  }
+
+  .print-section-title {
+    font-size: 16pt;
+    border-bottom: 1px solid #000;
+    margin-bottom: 15px;
+    padding-bottom: 5px;
+  }
+
+  .print-answer-item {
+    page-break-inside: avoid;
+    margin-bottom: 15px;
+    border-bottom: 0.5px solid #eee;
+    padding-bottom: 10px;
+  }
+
+  .print-a-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+  }
+
+  .print-a-correct {
+    font-weight: bold;
+    color: #d32f2f;
+    /* Dark red for visibility but safe for B&W */
+  }
+
+  .print-a-explanation {
+    font-size: 10pt;
+    background: #f9f9f9;
+    padding: 8px;
+    border-radius: 4px;
+  }
+
+  @page {
+    size: A4;
+    margin: 15mm;
+  }
+}
+
+/* Hide printable sheet in normal view */
+.printable-sheet {
+  display: none;
+}
+
 .modal-header {
   display: flex;
   align-items: flex-start;
@@ -2483,7 +2646,9 @@ body {
   text-transform: uppercase;
   background: var(--accent-gradient);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .report-content {

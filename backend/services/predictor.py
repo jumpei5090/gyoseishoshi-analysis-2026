@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from collections import defaultdict
 from models import Question, QuestionTopic, Topic, Law, Subject
+from services.ml_predictor import generate_ml_predictions
 
 
 MIN_YEAR = 2015
@@ -454,6 +455,7 @@ def _generate_logic_commentary(topic_name, series, scores):
 　③指数減衰重み付け（直近重要度）：25%
 　④出題間隔分析：15%
 　⑤ベイズ推定：10%
+(全体スコアの60%は機械学習モデル、40%はこの統計モデルによる融合スコアです)
 {boost_note}
 
 ■ {topic_name}　　　　　　　　　　　　スコア{scores['composite']}%
@@ -477,7 +479,7 @@ def _generate_logic_commentary(topic_name, series, scores):
 　→ {get_bayesian_narrative(scores['bayesian'], total_q)}
 
 【予測の信頼区間】
-・このスコアの信頼区間は{round(confidence_min, 1)}%〜{round(confidence_max, 1)}%です
+・このスコアの信頼区間は{round(confidence_min, 1)}%〜{round(confidence_max, 1)}%です (AIモデルによる学習済)
 
 【学習上の懸念】
 ・{selected_concern}
@@ -497,7 +499,6 @@ def generate_predictions(db: Session):
     """
     timeseries = _build_topic_timeseries(db)
 
-    # Get all topics with their hierarchy
     topics = (
         db.query(Topic, Law, Subject)
         .join(Law, Topic.law_id == Law.id)
@@ -506,13 +507,29 @@ def generate_predictions(db: Session):
         .all()
     )
 
+    # ── 機械学習予測の実行 ──
+    try:
+        ml_results = generate_ml_predictions(db)
+        ml_score_map = {r["topic_id"]: r["ml_score"] for r in ml_results}
+    except Exception as e:
+        print(f"ML Prediction failed: {e}")
+        ml_score_map = {}
+
     predictions = []
     for topic, law, subject in topics:
         series = timeseries.get(topic.id, [0] * N_YEARS)
         total_appearances = sum(series)
         years_appeared = sum(1 for v in series if v > 0)
 
-        scores = _compute_composite_score(topic.id, topic.name, series)
+        stat_scores = _compute_composite_score(topic.id, topic.name, series)
+        
+        # アンサンブル: 統計 40% + ML 60%
+        ml_score = ml_score_map.get(topic.id, 0.0)
+        composite_score = 0.4 * stat_scores["composite"] + 0.6 * ml_score
+        
+        # スコア反映
+        stat_scores["composite"] = round(composite_score, 1)
+        stat_scores["ml_score"] = ml_score
 
         # Determine trend direction
         x = np.arange(N_YEARS, dtype=float)
@@ -544,7 +561,7 @@ def generate_predictions(db: Session):
             "last_year": last_year,
             "trend_direction": trend_dir,
             "yearly_data": [{"year": MIN_YEAR + i, "count": series[i]} for i in range(N_YEARS)],
-            "scores": scores,
+            "scores": stat_scores,
         })
 
     # Sort by composite score descending

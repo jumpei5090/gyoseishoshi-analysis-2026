@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { getTaxonomy, getQuestionsByTopic, getHistory } from '../api/client'
 import PracticeMode from './PracticeMode'
 import MockExamMode from './MockExamMode'
+import PrintableQuestionSheet from './PrintableQuestionSheet'
 
 function TopicCount({ count }) {
     if (count == null) return null
@@ -211,6 +212,9 @@ export default function QuestionBrowserPage({ nickname, initialTopicId, onTopicC
                                 <div className="question-count-badge">
                                     {questions.length}問（2015〜2025年）
                                 </div>
+                                <button className="btn btn-outline print-btn" onClick={() => window.print()}>
+                                    <span>🖨️ 印刷する (A4)</span>
+                                </button>
                             </div>
 
                             {/* My Progress (if any history) */}
@@ -294,6 +298,12 @@ export default function QuestionBrowserPage({ nickname, initialTopicId, onTopicC
                     )}
                 </main>
             </div>
+            <PrintableQuestionSheet
+                questions={questions}
+                subjectName={selectedSubject?.name}
+                lawName={selectedLaw?.name}
+                topicName={selectedTopic?.name}
+            />
         </div>
     )
 }
